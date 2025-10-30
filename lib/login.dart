@@ -1,0 +1,126 @@
+import 'package:flutter/material.dart';
+import 'package:trip_plan/homepage.dart';
+import 'package:trip_plan/pages/bottombav.dart';
+import 'package:trip_plan/signup.dart';
+
+class Login extends StatefulWidget {
+  const Login({super.key});
+
+  @override
+  State<Login> createState() => _loginstate();
+}
+
+class _loginstate extends State<Login> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SingleChildScrollView(
+        child: Container(
+          height: MediaQuery.of(context).size.height,
+          child: Stack(
+            children: [
+              Container(
+                height: double.infinity,
+                width: double.infinity,
+                child: Image.network(
+                  "https://images.unsplash.com/photo-1597407068889-782ba11fb621?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8ZGFyayUyMG1vdW50YWlufGVufDB8fDB8fHww&fm=jpg&q=60&w=3000",
+                  fit: BoxFit.cover,
+                ),
+              ),
+              Opacity(
+                opacity: 0.7,
+                child: Container(
+                  height: double.infinity,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.brown,
+                        const Color.fromARGB(255, 169, 128, 113),
+                        const Color.fromARGB(255, 86, 168, 244),
+                        const Color.fromARGB(255, 5, 123, 234),
+                      ],
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 130),
+                        child: Icon(Icons.connecting_airports_outlined,size: 90,),
+                        
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 82,),
+                        child: Row(
+                          children: [
+                            Text("Go",style: TextStyle(fontSize: 70,color: Colors.orange,fontWeight: FontWeight.bold),),
+                            Text("Travel",style: TextStyle(fontSize: 40,color: Colors.white,fontWeight: FontWeight.bold),)
+                        
+                          ],
+                        ),
+                      ),
+                      Text("“Journey before destination.”"),
+                      SizedBox(height: 37,),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 15,right: 15),
+                        child: TextFormField(
+                          decoration: InputDecoration(
+                        prefixIcon: Icon(Icons.person),
+                            hintText: "User Name"
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 25,),
+                       Padding(
+                        padding: const EdgeInsets.only(left: 15,right: 15),
+                        child: TextFormField(
+                          decoration: InputDecoration(
+                        prefixIcon: Icon(Icons.lock),
+                            hintText: "Password"
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 100,),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context)=> Bottombav()));
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      color: Colors.amber,
+                    ),
+                    height: 45,width: 190,
+                    
+                    child: Center(child: Text("Login",style: TextStyle(fontWeight: FontWeight.bold,fontSize: 18),)),
+                  ),
+                ),
+                SizedBox(height: 8,),
+                Text("OR"),
+          
+                SizedBox(height: 15,),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => Signup(),));
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color.fromARGB(255, 108, 108, 108))
+                    ),
+                    height: 30,width: 80,
+                    child: Center(child: Text("Sign In",style: TextStyle(fontSize: 12),)),
+                  ),
+                )
+                    ],
+                  ),
+                ),       
+              ),        
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
