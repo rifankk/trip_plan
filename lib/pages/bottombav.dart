@@ -17,7 +17,7 @@ class _BottombavState extends State<Bottombav> {
   late Homepage homepage;
   late Explore explore;
   late Fav fav;
-  late Profile profile;
+  late ProfilePage profile;
 
   int currentTabIndex = 0;
 
@@ -27,7 +27,7 @@ class _BottombavState extends State<Bottombav> {
     homepage = const Homepage();
     explore = const Explore();
     fav = const Fav();
-    profile = const Profile();
+    profile = const ProfilePage();
     pages = [homepage, explore, fav, profile];
   }
 
@@ -56,7 +56,7 @@ class _BottombavState extends State<Bottombav> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.explore),
-            label: 'Explore',
+            label: 'My trips',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.favorite),

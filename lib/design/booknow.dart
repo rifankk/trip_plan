@@ -1,21 +1,41 @@
 import 'package:flutter/material.dart';
 
-class Booknow extends StatefulWidget {
-  const Booknow({super.key});
+void main() => runApp(const booknow());
 
-  @override
-  State<Booknow> createState() => _BooknowState();
-}
+class booknow extends StatelessWidget {
+  const booknow({super.key});
 
-class _BooknowState extends State<Booknow> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar:
-       AppBar(
-        title: Padding(
-          padding: const EdgeInsets.only(left: 30),
-          child: Text("Bookings",style: TextStyle(fontWeight: FontWeight.bold,fontSize: 25,color: Colors.black),),
+    return MaterialApp(
+      home: Scaffold(
+        appBar: AppBar(title: const Text("Book Now"), backgroundColor: Colors.orange),
+        body: Center(
+          child: Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            elevation: 4,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text("Trip to Paris", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  const Text("Price: \$899", style: TextStyle(color: Colors.grey)),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Trip Booked Successfully! 🎉")),
+                      );
+                    },
+                    child: const Text("Book Now", style: TextStyle(color: Colors.white)),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

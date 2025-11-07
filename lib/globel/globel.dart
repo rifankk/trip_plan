@@ -1,3 +1,4 @@
+import 'package:trip_plan/model/goamodel.dart';
 import 'package:trip_plan/model/model.dart';
 
 List<places>trip =[
@@ -11,4 +12,10 @@ List<places>trip =[
 List<places>favouruites =[
 
  
+];
+List<Goamodel>goamodel =[
+  Goamodel(imageurl: "https://www.ohotelsindia.com/goa/images/bccadd6018a0421487734769d7014e73.jpg", name: "North Goa Away From The Crowds"),
+  Goamodel(imageurl:"https://media-cdn.tripadvisor.com/media/photo-s/2f/6e/0d/6a/caption.jpg" , name: "Exclusive Goa Package", ),
+  Goamodel(imageurl: "https://dynamic-media-cdn.tripadvisor.com/media/photo-o/0b/a0/a3/70/front-view.jpg?w=1200&h=-1&s=1", name: "Grant Hyatt In Goa"),
+  Goamodel(imageurl: "https://i0.wp.com/theluxurytravelexpert.com/wp-content/uploads/2015/04/las-ventanas-al-paraiso-los-cabos-mexico.jpg?ssl=1", name: "Pool View Hangout")
 ];

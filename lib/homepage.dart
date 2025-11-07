@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:trip_plan/design/design.dart';
+import 'package:trip_plan/design/goa.dart';
 import 'package:trip_plan/globel/globel.dart';
 
 class Homepage extends StatefulWidget {
@@ -119,7 +120,7 @@ class _HomepageState extends State<Homepage> {
                   
                   return GestureDetector(
                     onTap: () {
-                       Navigator.push(context, MaterialPageRoute(builder: (context)=> Design()));
+                       Navigator.push(context, MaterialPageRoute(builder: (context)=> Goa()));
                     },
                     child: Card(
                       child: Padding(
