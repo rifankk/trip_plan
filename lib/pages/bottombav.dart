@@ -1,74 +1,65 @@
 import 'package:flutter/material.dart';
+import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:trip_plan/homepage.dart';
 import 'package:trip_plan/pages/explore.dart';
 import 'package:trip_plan/pages/fav.dart';
 import 'package:trip_plan/pages/profile.dart';
 
-class Bottombav extends StatefulWidget {
-  const Bottombav({super.key});
-
-  @override
-  State<Bottombav> createState() => _BottombavState();
+void main() {
+  runApp(const MyApp());
 }
 
-class _BottombavState extends State<Bottombav> {
-  late List<Widget> pages;
-
-  late Homepage homepage;
-  late Explore explore;
-  late Fav fav;
-  late ProfilePage profile;
-
-  int currentTabIndex = 0;
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
-  void initState() {
-    super.initState();
-    homepage = const Homepage();
-    explore = const Explore();
-    fav = const Fav();
-    profile = const ProfilePage();
-    pages = [homepage, explore, fav, profile];
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: CurvedNavBarDemo(),
+    );
   }
+}
+
+class CurvedNavBarDemo extends StatefulWidget {
+  @override
+  _CurvedNavBarDemoState createState() => _CurvedNavBarDemoState();
+}
+
+class _CurvedNavBarDemoState extends State<CurvedNavBarDemo> {
+  int _index = 0;
+
+  final screens = [
+    Homepage(),
+    Explore(),
+    Fav(),
+    ProfilePage(),
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // 👇 shows the selected page
-      body: pages[currentTabIndex],
-
-      // 👇 bottom navigation bar
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.black,
-        selectedItemColor: Colors.orange,
-        unselectedItemColor: Colors.white,
-        currentIndex: currentTabIndex,
-        type: BottomNavigationBarType.fixed,
-        onTap: (int index) {
+      backgroundColor: Colors.orange[50],
+      extendBody: true, // makes the curved effect look smoother
+      body: screens[_index],
+      bottomNavigationBar: CurvedNavigationBar(
+        backgroundColor: Colors.transparent,
+        color: Colors.black,
+        buttonBackgroundColor: Colors.red,
+        height: 60,
+        animationDuration: Duration(milliseconds: 400),
+        items: const <Widget>[
+          Icon(Icons.home, size: 30, color: Colors.white),
+          Icon(Icons.explore, size: 30, color: Colors.white),
+          Icon(Icons.favorite, size: 30, color: Colors.white),
+          Icon(Icons.person, size: 30, color: Colors.white),
+        ],
+        onTap: (index) {
           setState(() {
-            currentTabIndex = index;
+            _index = index;
           });
         },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.explore),
-            label: 'My trips',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite),
-            label: 'Favorites',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
       ),
-      
     );
   }
 }

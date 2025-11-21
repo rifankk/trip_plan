@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:trip_plan/Auth/authservice.dart';
 import 'package:trip_plan/homepage.dart';
 import 'package:trip_plan/pages/bottombav.dart';
 import 'package:trip_plan/signup.dart';
@@ -11,6 +12,12 @@ class Login extends StatefulWidget {
 }
 
 class _loginstate extends State<Login> {
+  final _userFormKey = GlobalKey<FormState>();
+
+  final TextEditingController _userEmailController = TextEditingController();
+  final TextEditingController _useerPasswordController =
+      TextEditingController();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -44,79 +51,169 @@ class _loginstate extends State<Login> {
                       ],
                     ),
                   ),
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 130),
-                        child: Icon(Icons.connecting_airports_outlined,size: 90,),
-                        
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 82,),
-                        child: Row(
-                          children: [
-                            Text("Go",style: TextStyle(fontSize: 70,color: Colors.orange,fontWeight: FontWeight.bold),),
-                            Text("Travel",style: TextStyle(fontSize: 40,color: Colors.white,fontWeight: FontWeight.bold),)
-                        
-                          ],
-                        ),
-                      ),
-                      Text("“Journey before destination.”"),
-                      SizedBox(height: 37,),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 15,right: 15),
-                        child: TextFormField(
-                          decoration: InputDecoration(
-                        prefixIcon: Icon(Icons.person),
-                            hintText: "User Name"
+                  child: Form(
+                    key: _userFormKey,
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 130),
+                          child: Icon(
+                            Icons.connecting_airports_outlined,
+                            size: 90,
                           ),
                         ),
-                      ),
-                      SizedBox(height: 25,),
-                       Padding(
-                        padding: const EdgeInsets.only(left: 15,right: 15),
-                        child: TextFormField(
-                          decoration: InputDecoration(
-                        prefixIcon: Icon(Icons.lock),
-                            hintText: "Password"
+                        Padding(
+                          padding: const EdgeInsets.only(left: 82),
+                          child: Row(
+                            children: [
+                              Text(
+                                "Go",
+                                style: TextStyle(
+                                  fontSize: 70,
+                                  color: Colors.orange,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                "Travel",
+                                style: TextStyle(
+                                  fontSize: 40,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                      SizedBox(height: 100,),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context)=> Bottombav()));
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      color: Colors.amber,
+                        Text("“Journey before destination.”"),
+                        SizedBox(height: 37),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 15, right: 15),
+                          child: TextFormField(
+                            controller: _userEmailController,
+                            decoration: InputDecoration(
+                              prefixIcon: Icon(Icons.mail),
+                              hintText: "User email",
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return "Please enter your email";
+                              }
+                              // ✅ Email pattern validation
+                              final emailRegex = RegExp(
+                                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                              );
+                              if (!emailRegex.hasMatch(value)) {
+                                return "Enter a valid email address";
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        SizedBox(height: 25),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 15, right: 15),
+                          child: TextFormField(
+                            controller: _useerPasswordController,
+                            decoration: InputDecoration(
+                              prefixIcon: Icon(Icons.lock),
+                              hintText: "Password",
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return "Please enter your password";
+                              } else if (value.length < 6) {
+                                return "Password must be at least 6 characters";
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        SizedBox(height: 100),
+                        GestureDetector(
+                          onTap: () async{
+
+                            if (_userFormKey.currentState!.validate()) {
+                              await Authservice().login(
+                                email: _userEmailController.text,
+                                password: _useerPasswordController.text,
+                              ).then((value) {
+                                if (value['uid'] !=null) {
+                               final snackbar = SnackBar(content: Text("success"));
+                               ScaffoldMessenger.of(context).showSnackBar(snackbar);
+
+                                   Navigator.pushAndRemoveUntil(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => CurvedNavBarDemo(),
+                              ),(route) => false,
+                            );
+                                }else{
+
+                                  final snackbar = SnackBar(content: Text("ERROR"));
+                                  ScaffoldMessenger.of(context).showSnackBar(snackbar);
+
+                                }
+                              },);
+                             
+
+                              
+                            }
+                            
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                              color: Colors.amber,
+                            ),
+                            height: 45,
+                            width: 190,
+
+                            child: Center(
+                              child: Text(
+                                "Login",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text("OR"),
+
+                        SizedBox(height: 15),
+                        GestureDetector(
+                          onTap: ()  {
+                            
+                             Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => Signup()),
+                            );
+                           
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: const Color.fromARGB(255, 108, 108, 108),
+                              ),
+                            ),
+                            height: 30,
+                            width: 80,
+                            child: Center(
+                              child: Text(
+                                "Sign In",
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    height: 45,width: 190,
-                    
-                    child: Center(child: Text("Login",style: TextStyle(fontWeight: FontWeight.bold,fontSize: 18),)),
                   ),
                 ),
-                SizedBox(height: 8,),
-                Text("OR"),
-          
-                SizedBox(height: 15,),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => Signup(),));
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: const Color.fromARGB(255, 108, 108, 108))
-                    ),
-                    height: 30,width: 80,
-                    child: Center(child: Text("Sign In",style: TextStyle(fontSize: 12),)),
-                  ),
-                )
-                    ],
-                  ),
-                ),       
-              ),        
+              ),
             ],
           ),
         ),
