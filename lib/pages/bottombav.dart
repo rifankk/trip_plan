@@ -5,21 +5,6 @@ import 'package:trip_plan/pages/explore.dart';
 import 'package:trip_plan/pages/fav.dart';
 import 'package:trip_plan/pages/profile.dart';
 
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: CurvedNavBarDemo(),
-    );
-  }
-}
 
 class CurvedNavBarDemo extends StatefulWidget {
   @override

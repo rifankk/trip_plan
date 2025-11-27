@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trip_plan/Auth/authservice.dart';
 import 'package:trip_plan/homepage.dart';
 import 'package:trip_plan/pages/bottombav.dart';
@@ -137,8 +138,10 @@ class _loginstate extends State<Login> {
                               await Authservice().login(
                                 email: _userEmailController.text,
                                 password: _useerPasswordController.text,
-                              ).then((value) {
+                              ).then((value) async{
                                 if (value['uid'] !=null) {
+                                  SharedPreferences prefs = await SharedPreferences.getInstance();
+                                  prefs.setString('uidkey', value['uid']);
                                final snackbar = SnackBar(content: Text("success"));
                                ScaffoldMessenger.of(context).showSnackBar(snackbar);
 

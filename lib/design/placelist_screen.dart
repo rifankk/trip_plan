@@ -1,22 +1,27 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:trip_plan/design/design.dart';
 import 'package:trip_plan/globel/globel.dart';
 
-class Goa extends StatefulWidget {
-  const Goa({super.key});
-
+class PlacelistScreen extends StatefulWidget {
+  PlacelistScreen({super.key, required this.mainplaceid});
+  String mainplaceid;
   @override
-  State<Goa> createState() => _GoaState();
+  State<PlacelistScreen> createState() => _PlacelistScreenState();
 }
 
-class _GoaState extends State<Goa> {
+class _PlacelistScreenState extends State<PlacelistScreen> {
+  @override
+  void initState() {
+    log(widget.mainplaceid);
+    super.initState();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Goa"),
-        centerTitle: true,
-      ),
+      appBar: AppBar(),
       body: Padding(
         padding: const EdgeInsets.all(10),
         child: GridView.builder(
@@ -33,15 +38,12 @@ class _GoaState extends State<Goa> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) =>
-                        Design(imageurl: goamodel[index].imageurl),
+                    builder: (context) => Design(imageurl: goamodel[index].imageurl),
                   ),
                 );
               },
               child: Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 elevation: 4,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

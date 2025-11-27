@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:trip_plan/homepage.dart';
 import 'dart:async';
 
 import 'package:trip_plan/login.dart';
+import 'package:trip_plan/pages/bottombav.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -10,9 +13,7 @@ class SplashPage extends StatefulWidget {
   State<SplashPage> createState() => _SplashPageState();
 }
 
-class _SplashPageState extends State<SplashPage>
-    with SingleTickerProviderStateMixin {
-
+class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
 
@@ -20,22 +21,23 @@ class _SplashPageState extends State<SplashPage>
   void initState() {
     super.initState();
 
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    );
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2));
 
-    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
 
     _controller.forward();
 
-    Timer(const Duration(seconds: 3), () {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => Login()),
-      );
+    Timer(const Duration(seconds: 3), () async {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? uid = await prefs.getString('uidkey');
+      if (uid != null) {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => CurvedNavBarDemo()));
+      } else {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => Login()));
+      }
     });
   }
 
@@ -50,16 +52,11 @@ class _SplashPageState extends State<SplashPage>
     return Scaffold(
       body: Stack(
         children: [
-
           // ---------------- Background Gradient ----------------
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  Color(0xFF0F2027),
-                  Color(0xFF203A43),
-                  Color(0xFF2C5364),
-                ],
+                colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -73,8 +70,7 @@ class _SplashPageState extends State<SplashPage>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  
-               Icon(Icons.connecting_airports_outlined,size: 80,),
+                  Icon(Icons.connecting_airports_outlined, size: 80),
 
                   const SizedBox(height: 20),
 
@@ -93,10 +89,7 @@ class _SplashPageState extends State<SplashPage>
 
                   const Text(
                     "Explore the world with us",
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
-                    ),
+                    style: TextStyle(color: Colors.white70, fontSize: 16),
                   ),
                 ],
               ),
@@ -114,8 +107,6 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(child: Text("Home Page")),
-    );
+    return Scaffold(body: Center(child: Text("Home Page")));
   }
 }
