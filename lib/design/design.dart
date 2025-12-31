@@ -1,11 +1,16 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dotted_line/dotted_line.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:trip_plan/design/booknow.dart';
-import 'package:trip_plan/design/entry.dart';
+import 'package:trip_plan/design/hotel_detail.dart';
+import 'package:trip_plan/model/hotel_model.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class Design extends StatefulWidget {
-  final String? imageurl;
-  const Design({super.key, this.imageurl});
+  final PlaceModel? placedtl;
+
+  const Design({super.key, this.placedtl});
 
   @override
   State<Design> createState() => _DesignState();
@@ -14,96 +19,240 @@ class Design extends StatefulWidget {
 class _DesignState extends State<Design> {
   bool isFav = false;
   String selectedFilter = "Hotels";
-  
 
-  Map<String, dynamic>? selectedHotel; 
-  final List<String> filters = ["Hotels", "Activities", "Meals"];
+  Hotel? selectedHotel;
+  final List<String> filters = ["Hotels", "Activities", "Meals", "Nearby"];
   List<String> selectedActivities = [];
-  List<String> selectedMeals = []; // Tracks optional selected meals by title
+  List<String> selectedMeals = [];
+  List<String> selectedtemple = [];
 
   // NEW: State variable for total calculated price
   double totalPrice = 0.0;
+  final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
-  // Helper function to get all hotels
-  List<Map<String, dynamic>> getAllHotels() =>
-      [...lowestHotels, ...middleHotels, ...highestHotels];
+  Future<void> openGoogleMap(double latitude, double longitude) async {
+    final Uri url = Uri.parse('https://www.google.com/maps?q=$latitude,$longitude');
 
-  // --- NEW: Price Calculation Logic ---
-  double _getHotelPrice(Map<String, dynamic>? hotel) {
+    await launchUrl(url, mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (widget.placedtl?.meals != null) {
+      for (var meal in widget.placedtl!.meals!) {
+        selectedMeals.add(meal.title ?? '');
+      }
+    }
+
+    totalPrice = _calculateTotalPrice();
+    _checkIfFavorite();
+  }
+
+  double _getHotelPrice(Hotel? hotel) {
     if (hotel == null) return 0.0;
-    // Extract price string, remove currency/text, and parse to double
-    String priceString = hotel['price'].toString().replaceAll(RegExp(r'[^\d.]'), '');
-  
-    return double.tryParse(priceString) ?? 0.0;
+    if (hotel.pricePerday is String) {
+      String priceString = hotel.pricePerday as String;
+
+      priceString = priceString.replaceAll(RegExp(r'[^\d.]'), '');
+      return double.tryParse(priceString) ?? 0.0;
+    } else if (hotel.pricePerday is double) {
+      return hotel.pricePerday as double;
+    } else if (hotel.pricePerday is int) {
+      return (hotel.pricePerday as int).toDouble();
+    }
+
+    return 0.0;
   }
 
   double _calculateTotalPrice() {
     double total = 0.0;
-    // Base Package Price (The ₹12,499 in the bottom bar, assumed constant for the package)
-    const double basePackagePrice = 12499.0;
+
+    double basePackagePrice = double.tryParse(widget.placedtl?.basePackagePrice ?? '0') ?? 0.0;
     total += basePackagePrice;
 
-    // 1. Hotel Price Adjustment: Find the difference from the lowest hotel
-    // We assume the base price includes the lowest hotel, so we only add the upgrade cost.
-    double lowestHotelPrice = _getHotelPrice(lowestHotels.first);
+    if (widget.placedtl?.hotels != null && widget.placedtl!.hotels!.isNotEmpty) {
+      double lowestHotelPrice = double.maxFinite;
+      // for (var hotel in widget.placedtl!.hotels!) {
+      //   double price = _getHotelPrice(hotel);
+      //   if (price < lowestHotelPrice) {
+      //     lowestHotelPrice = price;
+      //   }
+      // }
 
-    if (selectedHotel != null) {
+      if (selectedHotel != null) {
         double selectedHotelPrice = _getHotelPrice(selectedHotel);
-        // Add the difference in cost between the selected hotel and the lowest hotel 
-        // (This correctly only adds the UPGRADE cost)
         double hotelAdjustment = selectedHotelPrice - lowestHotelPrice;
         if (hotelAdjustment > 0) {
-            total += hotelAdjustment;
+          total += hotelAdjustment;
         }
+      }
+    } else if (selectedHotel != null) {
+      total += _getHotelPrice(selectedHotel);
     }
 
-    // 2. Activities Price
-    for (String activityName in selectedActivities) {
-      final activity = activities.firstWhere(
-          (a) => a['name'] == activityName,
-          orElse: () => {"price": 0.0});
-      total += activity["price"] as double; // Activities are all optional extras
+    if (widget.placedtl?.activity != null) {
+      for (String activityName in selectedActivities) {
+        final activity = widget.placedtl!.activity!.firstWhere(
+          (a) => a.title == activityName,
+          orElse: () => Activity(price: "0"),
+        );
+
+        double activityPrice = 0.0;
+        if (activity.price != null) {
+          String priceStr = activity.price!.replaceAll(RegExp(r'[^\d.]'), '');
+          activityPrice = double.tryParse(priceStr) ?? 0.0;
+        }
+        total += activityPrice;
+      }
     }
 
-    // 3. Optional Meals Price
-    // We only iterate over *optional* meals that were selected
-    for (String mealTitle in selectedMeals) {
-      final meal = meals.firstWhere(
-          (m) => m['title'] == mealTitle,
-          orElse: () => {"price": 0.0, "included": false});
+    if (widget.placedtl?.meals != null) {
+      for (String mealTitle in selectedMeals) {
+        final meal = widget.placedtl!.meals!.firstWhere(
+          (m) => m.title == mealTitle,
+          orElse: () => Meal(price: "0"),
+        );
 
-      // IMPORTANT: Only add price if it's an optional meal that has a cost.
-      if (meal["included"] == false && meal["price"] > 0) {
-        total += meal["price"] as double;
+        // Check if meal is optional (not included in base package)
+        // You might need to add an 'included' field to your Meal model
+        double mealPrice = 0.0;
+        if (meal.price != null) {
+          String priceStr = meal.price!.replaceAll(RegExp(r'[^\d.]'), '');
+          mealPrice = double.tryParse(priceStr) ?? 0.0;
+        }
+
+        // Add logic to check if meal is included or extra
+        // For now, assuming all meals in model are included in base price
+        // total += mealPrice;
       }
     }
 
     return total;
   }
 
-  @override
-  void initState() {
-    super.initState();
-   
-    totalPrice = _calculateTotalPrice(); 
+  // Check if place is already in favorites
+  Future<void> _checkIfFavorite() async {
+    if (widget.placedtl == null) return;
 
-    for (var meal in meals) {
-      if (meal["included"] == true) {
-        selectedMeals.add(meal["title"]);
+    try {
+      final querySnapshot = await firestore
+          .collection('favorites')
+          .where('place', isEqualTo: widget.placedtl?.place)
+          .limit(1)
+          .get();
+
+      if (mounted) {
+        setState(() {
+          isFav = querySnapshot.docs.isNotEmpty;
+        });
       }
-    } 
+    } catch (e) {
+      print('Error checking favorite status: $e');
+    }
   }
-  
-  // Use a custom setState wrapper to recalculate price every time the state changes
-  @override
-  void setState(VoidCallback fn) {
-    super.setState(() {
-      fn();
-      totalPrice = _calculateTotalPrice();
 
-    });
+  // Toggle favorite status
+  Future<void> _toggleFavorite() async {
+    if (widget.placedtl == null) return;
+
+    try {
+      if (isFav) {
+        // Remove from favorites
+        final querySnapshot = await firestore
+            .collection('favorites')
+            .where('place', isEqualTo: widget.placedtl?.place)
+            .limit(1)
+            .get();
+
+        for (var doc in querySnapshot.docs) {
+          await doc.reference.delete();
+        }
+
+        if (mounted) {
+          setState(() {
+            isFav = false;
+          });
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Removed from favorites')));
+        }
+      } else {
+        // Add to favorites
+        final favoriteData = {
+          'image': widget.placedtl?.image,
+          'image2': widget.placedtl?.image2,
+          'place': widget.placedtl?.place,
+          'description': widget.placedtl?.description,
+          'hotels': widget.placedtl?.hotels
+              ?.map(
+                (hotel) => {
+                  'id': hotel.id,
+                  "price perday": hotel.pricePerday,
+                  'hotel': hotel.hotel,
+                  'longitude': hotel.longitude,
+                  'latitude': hotel.latitude,
+                  'filter': hotel.filter,
+                  'image1': hotel.image1,
+                  'image2': hotel.image2,
+                  'description': hotel.description,
+                },
+              )
+              .toList(),
+          'activities': widget.placedtl?.activity
+              ?.map(
+                (activity) => {
+                  'title': activity.title,
+                  'description': activity.description,
+                  'price': activity.price,
+                  'id': activity.id,
+                },
+              )
+              .toList(),
+          'meals': widget.placedtl?.meals
+              ?.map(
+                (meal) => {
+                  'id': meal.id,
+                  'title': meal.title,
+                  'items': meal.items,
+                  'price': meal.price,
+                  'time': meal.time,
+                },
+              )
+              .toList(),
+          'mainplace': widget.placedtl?.meals
+              ?.map(
+                (meal) => {
+                  'id': meal.id,
+                  'title': meal.title,
+                  'items': meal.items,
+                  'price': meal.price,
+                  'time': meal.time,
+                },
+              )
+              .toList(),
+          'timestamp': FieldValue.serverTimestamp(),
+        };
+
+        await firestore.collection('favorites').add(widget.placedtl!.toJson());
+
+        if (mounted) {
+          setState(() {
+            isFav = true;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added to favorites')));
+        }
+      }
+    } catch (e) {
+      print('Error toggling favorite: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      }
+    }
   }
-  // ---------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -113,21 +262,17 @@ class _DesignState extends State<Design> {
         backgroundColor: Colors.transparent,
         leading: GestureDetector(
           onTap: () => Navigator.pop(context),
-          child: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+          child: Icon(Icons.arrow_back_ios_new, color: Colors.white),
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 20, bottom: 2),
+            padding: EdgeInsets.only(right: 20.w, bottom: 2.h),
             child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  isFav = !isFav;
-                });
-              },
+              onTap: _toggleFavorite,
               child: Icon(
                 isFav ? Icons.favorite : Icons.favorite_border_outlined,
                 color: isFav ? Colors.redAccent : Colors.white,
-                size: 30,
+                size: 30.sp,
               ),
             ),
           ),
@@ -136,14 +281,15 @@ class _DesignState extends State<Design> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // 🌅 Main Image
+            // Main Image
             ClipRRect(
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(20.r),
+                bottomRight: Radius.circular(20.r),
               ),
               child: Image.network(
-                widget.imageurl ??
+                widget.placedtl?.image ??
+                    widget.placedtl?.mainplace?.imageUrl ??
                     "https://images.unsplash.com/photo-1507525428034-b723cf961d3e",
                 height: 300,
                 width: double.infinity,
@@ -151,37 +297,39 @@ class _DesignState extends State<Design> {
               ),
             ),
 
-            // 🔹 Main Details Section
+            // Main Details Section
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: Color.fromARGB(255, 243, 242, 242),
                 borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(28),
-                  topRight: Radius.circular(28),
+                  topLeft: Radius.circular(28.r),
+                  topRight: Radius.circular(28.r),
                 ),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16.w),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 🔸 Mini Photo Gallery (Original Code)
+                    // Mini Photo Gallery
                     SizedBox(
-                      height: 60,
+                      height: 60.h,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
                         itemCount: 4,
                         itemBuilder: (context, index) {
                           return Padding(
-                            padding: const EdgeInsets.only(right: 10),
+                            padding: EdgeInsets.only(right: 10.w),
                             child: Container(
-                              width: 95,
+                              width: 95.w,
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(15),
-                                image: const DecorationImage(
+                                borderRadius: BorderRadius.circular(15.r),
+                                image: DecorationImage(
                                   fit: BoxFit.cover,
                                   image: NetworkImage(
-                                    "https://images.livemint.com/img/2023/01/14/original/mountain_environment_1673684710775.jpg",
+                                    widget.placedtl?.image2 ??
+                                        widget.placedtl?.image ??
+                                        "https://images.livemint.com/img/2023/01/14/original/mountain_environment_1673684710775.jpg",
                                   ),
                                 ),
                               ),
@@ -191,56 +339,52 @@ class _DesignState extends State<Design> {
                       ),
                     ),
 
-                    const SizedBox(height: 20),
-                    const Text(
-                      "Itinerary",
+                    SizedBox(height: 20.h),
+                    Text(
+                      widget.placedtl?.place ?? "",
                       style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 24,
-                          color: Colors.black),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 24.sp,
+                        color: Colors.black,
+                      ),
                     ),
-                    const Text(
-                      "Day Wise Details of your package",
-                      style: TextStyle(fontSize: 13),
-                    ),
+                    Text("Day Wise Details of your package", style: TextStyle(fontSize: 13.sp)),
 
-                    // 🔹 Filter Buttons (Original Code)
-                    const SizedBox(height: 10),
+                    // Filter Buttons
+                    SizedBox(height: 10.h),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: filters
-                          .map((f) => GestureDetector(
-                                onTap: () => setState(() {
-                                  selectedFilter = f;
-                                }),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 8, horizontal: 30),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    color: selectedFilter == f
-                                        ? Colors.indigo
-                                        : Colors.white,
-                                  ),
-                                  child: Text(
-                                    f,
-                                    style: TextStyle(
-                                      color: selectedFilter == f
-                                          ? Colors.white
-                                          : Colors.black,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                          .map(
+                            (f) => GestureDetector(
+                              onTap: () => setState(() {
+                                selectedFilter = f;
+                              }),
+                              child: AnimatedContainer(
+                                duration: Duration(milliseconds: 200),
+                                padding: EdgeInsets.symmetric(vertical: 8.w, horizontal: 15.w),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  color: selectedFilter == f ? Colors.indigo : Colors.white,
+                                ),
+                                child: Text(
+                                  f,
+                                  style: TextStyle(
+                                    color: selectedFilter == f ? Colors.white : Colors.black,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                              ))
+                              ),
+                            ),
+                          )
                           .toList(),
                     ),
-                    const Divider(),
+                    Divider(),
 
                     if (selectedFilter == "Hotels") _buildHotels(),
                     if (selectedFilter == "Activities") _buildActivities(),
                     if (selectedFilter == "Meals") _buildMeals(),
+                    if (selectedFilter == "Nearby") _buildnearby(),
                   ],
                 ),
               ),
@@ -249,69 +393,41 @@ class _DesignState extends State<Design> {
         ),
       ),
 
-    
-
-      // 📦 Bottom Button Section
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: const BoxDecoration(
+        padding: EdgeInsets.all(16.w),
+        decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6)],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // --- UPDATED: Display Selected Items Summary ---
-            _buildSelectionSummary(),
-            // ------------------------------------------
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.star, color: Colors.amber),
-                    const SizedBox(width: 5),
-                    const Text("4.7",
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                // --- NEW: Display Total Price ---
-                Text(
-                  "₹${totalPrice.toStringAsFixed(0)} / person",
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                      fontSize: 18),
-                ),
-                // --------------------------------
-              ],
-            ),
-            const SizedBox(height: 10),
             GestureDetector(
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const Booknow()),
-                );
+                _showSelectionSummaryBottomSheet(context);
               },
-              child: Container(
-                height: 60,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Colors.indigo, Colors.cyan],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+              child: Padding(
+                padding: EdgeInsets.only(left: 180.w),
+                child: Container(
+                  height: 60.h,
+                  width: 140.w,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Colors.indigo, Colors.cyan],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20.r),
                   ),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Center(
-                  child: Text(
-                    "Book Now",
-                    style: TextStyle(
-                        fontSize: 22,
+                  child: Center(
+                    child: Text(
+                      "View Detail",
+                      style: TextStyle(
+                        fontSize: 22.sp,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white),
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -322,68 +438,141 @@ class _DesignState extends State<Design> {
     );
   }
 
-  // --- UPDATED: Selection Summary Widget ---
+  void _showSelectionSummaryBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25.r)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16.w,
+            right: 16.w,
+            top: 16.h,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16.h,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              /// Drag Indicator
+              Container(
+                height: 5.h,
+                width: 50.w,
+                margin: EdgeInsets.only(bottom: 15.h),
+                decoration: BoxDecoration(
+                  color: Colors.grey[400],
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+              ),
+
+              /// YOUR EXISTING CONTENT
+              _buildSelectionSummary(),
+
+              SizedBox(height: 20.h),
+
+              /// BOOK NOW BUTTON
+              GestureDetector(
+                onTap: () {
+                  Navigator.pop(context); // close bottom sheet
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => Booknow()));
+                },
+                child: Container(
+                  height: 60.h,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Colors.indigo, Colors.cyan],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20.r),
+                  ),
+                  child: Center(
+                    child: Text(
+                      "Details",
+                      style: TextStyle(
+                        fontSize: 22.sp,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              SizedBox(height: 20.h),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Selection Summary Widget
   Widget _buildSelectionSummary() {
-    // Only display if at least one item is selected in any category
-    if (selectedHotel == null &&
-        selectedActivities.isEmpty &&
-        selectedMeals.isEmpty) {
-      return const SizedBox.shrink();
+    if (selectedHotel == null && selectedActivities.isEmpty && selectedMeals.isEmpty) {
+      return SizedBox.shrink();
     }
 
-    // Prepare a list of summary strings
     List<String> summary = [];
 
     // 1. Hotel Summary
     if (selectedHotel != null) {
-      // Calculate hotel price adjustment
       double selectedHotelPrice = _getHotelPrice(selectedHotel);
-      double lowestHotelPrice = _getHotelPrice(lowestHotels.first);
-      double hotelAdjustment = selectedHotelPrice - lowestHotelPrice;
-      
-      String priceText = hotelAdjustment > 0 
-          ? " (Upgrade: +₹${hotelAdjustment.toStringAsFixed(0)})" 
-          : " (Included)";
 
-      summary.add("Hotel: ${selectedHotel!['name']}$priceText");
+      // Find lowest hotel price from model
+      double lowestHotelPrice = double.maxFinite;
+      if (widget.placedtl?.hotels != null) {
+        for (var hotel in widget.placedtl!.hotels!) {
+          double price = _getHotelPrice(hotel);
+          if (price < lowestHotelPrice) {
+            lowestHotelPrice = price;
+          }
+        }
+      }
+
+      double hotelAdjustment = selectedHotelPrice - lowestHotelPrice;
+      String priceText = hotelAdjustment > 0
+          ? " (Upgrade: +₹${hotelAdjustment.toStringAsFixed(0)})"
+          : " (Included)";
+      summary.add("Hotel: ${selectedHotel?.hotel}$priceText");
     }
 
     // 2. Activities Summary
-    if (selectedActivities.isNotEmpty) {
+    if (selectedActivities.isNotEmpty && widget.placedtl?.activity != null) {
       for (String activityName in selectedActivities) {
-        final activity = activities.firstWhere(
-            (a) => a['name'] == activityName,
-            orElse: () => {"price": 0.0});
-        String priceText = activity["price"] > 0
-            ? " (Extra: +₹${activity["price"].toStringAsFixed(0)})"
+        final activity = widget.placedtl!.activity!.firstWhere(
+          (a) => a.title == activityName,
+          orElse: () => Activity(price: "0"),
+        );
+
+        double activityPrice = 0.0;
+        if (activity.price != null) {
+          String priceStr = activity.price!.replaceAll(RegExp(r'[^\d.]'), '');
+          activityPrice = double.tryParse(priceStr) ?? 0.0;
+        }
+
+        String priceText = activityPrice > 0
+            ? " (Extra: +₹${activityPrice.toStringAsFixed(0)})"
             : "";
         summary.add("Activity: $activityName$priceText");
       }
     }
 
     // 3. Meals Summary
-    // Display included meals (no extra cost)
-    List<Map<String, dynamic>> includedMeals = meals
-        .where((m) => m["included"] == true)
-        .toList();
-    for(final meal in includedMeals) {
-        summary.add("Meal: ${meal["title"]} (Included)");
-    }
-    
-    // Display selected optional meals
-    List<Map<String, dynamic>> optionalSelectedMeals = meals
-        .where((m) => m["included"] == false && selectedMeals.contains(m["title"]))
-        .toList();
-    for(final meal in optionalSelectedMeals) {
-        String priceText = meal["price"] > 0
-            ? " (Extra: +₹${meal["price"].toStringAsFixed(0)})"
-            : "";
-        summary.add("Meal: ${meal["title"]}$priceText");
+    if (widget.placedtl?.meals != null) {
+      // Add included meals
+      for (final meal in widget.placedtl!.meals!) {
+        // Assuming all meals in model are included in base package
+        summary.add("Meal: ${meal.title} (Included)");
+      }
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      margin: const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.w),
+      margin: EdgeInsets.only(bottom: 10.h),
       decoration: BoxDecoration(
         color: Colors.green.withOpacity(0.1),
         borderRadius: BorderRadius.circular(10),
@@ -392,74 +581,77 @@ class _DesignState extends State<Design> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             "📝 Your Selections:",
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.green,
-              fontSize: 14,
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 14.sp),
+          ),
+          SizedBox(height: 5.h),
+          ...summary.map(
+            (text) => Padding(
+              padding: EdgeInsets.only(top: 2.0.h),
+              child: Text(
+                "• $text",
+                style: TextStyle(fontSize: 13.sp, color: Colors.black87),
+              ),
             ),
           ),
-          const SizedBox(height: 5),
-          ...summary.map((text) => Padding(
-                padding: const EdgeInsets.only(top: 2.0),
-                child: Text(
-                  "• $text",
-                  style: const TextStyle(fontSize: 13, color: Colors.black87),
-                ),
-              )),
-           Padding(
-             padding:  EdgeInsets.symmetric(vertical: 8),
-             child: DottedLine(dashColor: Colors.black38, dashGapLength: 4, lineThickness: 0.5,),
-           ),
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.w),
+            child: DottedLine(dashColor: Colors.black38, dashGapLength: 4, lineThickness: 0.5),
+          ),
           Text(
-            "💰 Base Price: ₹12,499",
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+            "💰 Base Price:  ₹${totalPrice}",
+            style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold, color: Colors.black87),
           ),
           Text(
             "✨ Total Price: ₹${totalPrice.toStringAsFixed(0)}",
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black),
+            style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold, color: Colors.black),
           ),
         ],
       ),
     );
   }
 
-  // ---------------------------------------
-
   Widget _buildHotels() {
+    // Use hotels from the model
+    final hotels = widget.placedtl?.hotels ?? [];
+
+    if (hotels.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.hotel, size: 50.sp, color: Colors.grey[300]),
+            SizedBox(height: 10.h),
+            Text("No hotels available", style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
+    }
+
     return DefaultTabController(
       length: 3,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 10),
-
-          // 🔹 Tab Bar (Original Code)
+          SizedBox(height: 10.h),
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
+              borderRadius: BorderRadius.circular(15.r),
+              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
             ),
             child: TabBar(
               labelColor: Colors.white,
               unselectedLabelColor: Colors.black87,
-              labelPadding: const EdgeInsets.symmetric(horizontal: 20),
+              labelPadding: EdgeInsets.symmetric(horizontal: 20.w),
               indicatorSize: TabBarIndicatorSize.tab,
               indicator: BoxDecoration(
                 color: Colors.indigo,
-                borderRadius: const BorderRadius.all(Radius.circular(10)),
+                borderRadius: BorderRadius.all(Radius.circular(10.r)),
               ),
-              indicatorPadding:
-                  const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-              tabs: const [
+              indicatorPadding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 5.w),
+              tabs: [
                 Tab(text: "Lowest"),
                 Tab(text: "Middle"),
                 Tab(text: "Highest"),
@@ -467,16 +659,15 @@ class _DesignState extends State<Design> {
             ),
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: 12.h),
 
-          // 🔹 Important: Give fixed height and use Expanded inside a Flexible parent
           SizedBox(
-            height: 280,
+            height: 280.h,
             child: TabBarView(
               children: [
-                _hotelList(lowestHotels),
-                _hotelList(middleHotels),
-                _hotelList(highestHotels),
+                _hotelList(hotels.where((h) => h.filter?.toLowerCase() == 'lowest').toList()),
+                _hotelList(hotels.where((h) => h.filter?.toLowerCase() == 'middle').toList()),
+                _hotelList(hotels.where((h) => h.filter?.toLowerCase() == 'highest').toList()),
               ],
             ),
           ),
@@ -485,164 +676,131 @@ class _DesignState extends State<Design> {
     );
   }
 
-  // --- UPDATED: Hotel Data with Parsable Price ---
-  final List<Map<String, dynamic>> lowestHotels = [
-    {
-      "id": 1,
-      "name": "Budget Inn Goa",
-      "location": "Baga Beach",
-      "price": "₹2,499 / night",
-      "rating": "4.0",
-      "img":
-          "https://images.unsplash.com/photo-1618773928121-c32242e63f39?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8aG90ZWx8ZW58MHx8MHx8fDA%3D&fm=jpg&q=60&w=3000"
-    },
-    {
-      "id": 2,
-      "name": "Casa Comfort Stay",
-      "location": "Mapusa",
-      "price": "₹3,199 / night",
-      "rating": "4.2",
-      "img":
-          "https://images.unsplash.com/photo-1618773928121-c32242e63f39?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8aG90ZWx8ZW58MHx8MHx8fDA%3D&fm=jpg&q=60&w=3000"
-    },
-  ];
+  /// Hotel List
+  Widget _hotelList(List<Hotel> filteredHotels) {
+    if (filteredHotels.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.hotel, size: 50.sp, color: Colors.grey[300]),
+            SizedBox(height: 10.h),
+            Text("No hotels in this category", style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
+    }
 
-  final List<Map<String, dynamic>> middleHotels = [
-    {
-      "id": 3,
-      "name": "The Tamarind Hotel",
-      "location": "Anjuna",
-      "price": "₹6,999 / night",
-      "rating": "4.5",
-      "img":
-          "https://images.unsplash.com/photo-1618773928121-c32242e63f39?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8aG90ZWx8ZW58MHx8MHx8fDA%3D&fm=jpg&q=60&w=3000"
-    },
-  ];
-
-  final List<Map<String, dynamic>> highestHotels = [
-    {
-      "id": 4,
-      "name": "Taj Exotica Resort & Spa",
-      "location": "Benaulim",
-      "price": "₹18,499 / night",
-      "rating": "4.9",
-      "img":
-          "https://images.unsplash.com/photo-1618773928121-c32242e63f39?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8aG90ZWx8ZW58MHx8MHx8fDA%3D&fm=jpg&q=60&w=3000"
-    },
-  ];
-  // ---------------------------------------
-
-  /// 🔸 Helper Widget for Reusable Hotel List (Original Logic, uses custom setState wrapper)
-  Widget _hotelList(List<Map<String, dynamic>> _hotelList) {
     return ListView.builder(
-      itemCount: _hotelList.length,
-      padding: const EdgeInsets.only(top: 5),
+      itemCount: filteredHotels.length,
+      padding: EdgeInsets.only(top: 5.h),
       itemBuilder: (context, index) {
-        final h = _hotelList[index];
-        // Check if this hotel is the currently selected one
-        bool isChecked = selectedHotel?['id'] == h['id'];
+        final h = filteredHotels[index];
+        bool isChecked = selectedHotel?.id == h.id;
 
         return GestureDetector(
           onTap: () {
-            // NOTE: Original code goes to Entry(), maintaining that behavior
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => HotelDetailsPage()),
+              MaterialPageRoute(builder: (context) => HotelDetailsPage(hotel: h)),
             );
           },
           child: Card(
-            margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            margin: EdgeInsets.symmetric(vertical: 6.h, horizontal: 8.h),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
             elevation: 3,
             child: Container(
-              padding: const EdgeInsets.all(8),
+              padding: EdgeInsets.all(8.r),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // hotel image (Original Code)
+                  // Hotel image
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(10.r),
                     child: Image.network(
-                      h["img"]!,
-                      width: 80,
-                      height: 80,
+                      h.image1?.isNotEmpty == true
+                          ? h.image1!
+                          : h.image2?.isNotEmpty == true
+                          ? h.image2!
+                          : 'https://via.placeholder.com/80',
+                      width: 80.w,
+                      height: 80.h,
                       fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        width: 80.w,
+                        height: 80.h,
+                        color: Colors.grey[200],
+                        child: Icon(Icons.hotel, color: Colors.grey[400]),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10.h),
 
-                  // hotel info (name, location, price) (Original Code)
+                  // Hotel info
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          h["name"]!,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
+                          h.hotel ?? 'Unnamed Hotel',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16.sp),
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: 4.h),
                         Text(
-                          h["location"]!,
-                          style: const TextStyle(color: Colors.black54),
+                          h.description ?? 'No description available',
+                          style: TextStyle(color: Colors.black54, fontSize: 12.sp),
                           overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          h["price"]!,
-                          style: const TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        SizedBox(height: 4.h),
+                        Row(
+                          children: [
+                            Text(
+                              "₹${h.pricePerday ?? '0'}",
+                              style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600),
+                            ),
+                            SizedBox(width: 8.w),
+                            Container(
+                              padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.w),
+                              decoration: BoxDecoration(
+                                color: _getFilterColor(h.filter ?? ''),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                (h.filter ?? '').toUpperCase(),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10.sp,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
 
-                  // rating + checkbox on right (Original Logic)
+                  // Checkbox
                   Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.star,
-                              color: Colors.amber, size: 20),
-                          const SizedBox(width: 3),
-                          Text(
-                            h["rating"]!,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      // Use the main setState to update selectedHotel
+                      SizedBox(height: 6.h),
                       Checkbox(
                         value: isChecked,
                         onChanged: (val) {
                           setState(() {
                             if (val == true) {
-                              // Select this hotel
                               selectedHotel = h;
-                            } else {
-                              // Deselect only if it was the current one
-                              if (selectedHotel?['id'] == h['id']) {
-                                selectedHotel = null;
-                              }
+                            } else if (selectedHotel?.id == h.id) {
+                              selectedHotel = null;
                             }
                           });
                         },
-                        visualDensity: const VisualDensity(
-                            horizontal: -4, vertical: -4),
+
                         activeColor: Colors.blueAccent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4.r)),
                       ),
                     ],
                   ),
@@ -655,259 +813,278 @@ class _DesignState extends State<Design> {
     );
   }
 
-  // --- UPDATED: Activities Data with Price ---
-  final List<Map<String, dynamic>> activities = [
-    {
-      "icon": Icons.surfing,
-      "name": "Water Sports",
-      "desc": "Banana ride, Jet Ski, Parasailing",
-      "price": 1500.0, // Added price
-    },
-    {
-      "icon": Icons.hiking,
-      "name": "Nature Trekking",
-      "desc": "Discover hidden waterfalls and trails",
-      "price": 500.0, // Added price
-    },
-    {
-      "icon": Icons.spa,
-      "name": "Spa & Relaxation",
-      "desc": "Beachside spa and wellness activities",
-      "price": 2500.0, // Added price
-    },
-    {
-      "icon": Icons.restaurant,
-      "name": "Food Tour",
-      "desc": "Local Goan seafood tasting experience",
-      "price": 800.0, // Added price
-    },
-  ];
+  Color _getFilterColor(String filter) {
+    switch (filter.toLowerCase()) {
+      case 'lowest':
+        return Colors.green;
+      case 'middle':
+        return Colors.orange;
+      case 'highest':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
 
-  // 🏄 Activities Section with Checkboxes (Updated to show price)
   Widget _buildActivities() {
+    // Use activities from the model
+    final activitiesList = widget.placedtl?.activity ?? [];
+
+    if (activitiesList.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.flag, size: 50.sp, color: Colors.grey[300]),
+            SizedBox(height: 10.h),
+            Text("No activities available", style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 8),
-        const Text(
+        SizedBox(height: 8.h),
+        Text(
           "Choose Your Activities",
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 10),
-        ...activities.map((activity) {
-          bool isSelected =
-              selectedActivities.contains(activity["name"]); // check if selected
+        SizedBox(height: 10.h),
+
+        ...activitiesList.map((activity) {
+          bool isSelected = selectedActivities.contains(activity.title);
+
           return Card(
             elevation: 2,
-            margin: const EdgeInsets.symmetric(vertical: 6),
+            margin: EdgeInsets.symmetric(vertical: 6.w),
             child: CheckboxListTile(
               activeColor: Colors.blueAccent,
               value: isSelected,
               onChanged: (bool? value) {
-                // Use the main setState to update selectedActivities
                 setState(() {
-                  if (value == true) {
-                    selectedActivities.add(activity["name"]);
-                  } else {
-                    selectedActivities.remove(activity["name"]);
+                  if (value == true && activity.title != null) {
+                    selectedActivities.add(activity.title!);
+                  } else if (activity.title != null) {
+                    selectedActivities.remove(activity.title!);
                   }
                 });
               },
-              title: Text(activity["name"]),
+              title: Text(activity.title ?? 'No Name'),
               subtitle: Text(
-                  "${activity["desc"]} (Extra: ₹${activity["price"].toStringAsFixed(0)})"), // Show price
-              secondary: Icon(activity["icon"], color: Colors.blueAccent),
+                "${activity.description ?? 'No description'} (Extra: ₹${activity.price ?? '0'})",
+              ),
+              secondary: Icon(_getActivityIcon(activity.title), color: Colors.blueAccent),
             ),
           );
         }).toList(),
-        const SizedBox(height: 10),
+
+        SizedBox(height: 10.h),
         if (selectedActivities.isNotEmpty)
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(12.r),
             decoration: BoxDecoration(
               color: Colors.blueAccent.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
               "Selected: ${selectedActivities.join(', ')}",
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Colors.blueAccent,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.blueAccent),
             ),
           ),
       ],
     );
   }
 
-  // --- UPDATED: Meals Data with Price ---
-  final List<Map<String, dynamic>> meals = [
-    {
-      "icon": Icons.breakfast_dining,
-      "title": "Breakfast Buffet",
-      "desc": "Continental + Goan dishes with coffee & juice",
-      "time": "7:00 AM - 10:00 AM",
-      "included": true,
-      "price": 0.0,
-    },
-    {
-      "icon": Icons.lunch_dining,
-      "title": "Goan Lunch Thali",
-      "desc": "Traditional seafood and vegetarian options",
-      "time": "12:30 PM - 2:30 PM",
-      "included": true,
-      "price": 0.0,
-    },
-    {
-      "icon": Icons.dinner_dining,
-      "title": "Beachside Candlelight Dinner",
-      "desc": "Optional romantic dinner setup",
-      "time": "7:00 PM - 10:00 PM",
-      "included": false,
-      "price": 1800.0, // Added price
-    },
-    {
-      "icon": Icons.emoji_food_beverage,
-      "title": "Evening Tea & Snacks",
-      "desc": "Assorted pastries and masala chai",
-      "time": "5:00 PM - 6:00 PM",
-      "included": false,
-      "price": 350.0, // Added price
-    },
-  ];
-
-  // 🍽 Meals Section with Checkboxes (Updated to show price)
   Widget _buildMeals() {
+    // Use meals from the model
+    final mealsList = widget.placedtl?.meals ?? [];
+
+    if (mealsList.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.restaurant, size: 50.sp, color: Colors.grey[300]),
+            SizedBox(height: 10.h),
+            Text("No meals available", style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           "🍽 Meals & Dining Options",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20.sp),
         ),
-        const SizedBox(height: 8),
-        const Text(
-          "Select your meal preferences and add optional experiences",
-          style: TextStyle(color: Colors.black54),
-        ),
-        const SizedBox(height: 12),
+        SizedBox(height: 8.h),
+        Text("Select your meal preferences", style: TextStyle(color: Colors.black54)),
+        SizedBox(height: 12.h),
 
-        // List of meals
-        ...meals.map((meal) {
-          bool selected = selectedMeals.contains(meal["title"]);
-          bool isIncluded = meal["included"];
-          String priceText = meal["price"] > 0
-              ? " (Extra: ₹${meal["price"].toStringAsFixed(0)})"
-              : isIncluded
-                  ? " (Included)"
-                  : "";
+        ...mealsList.map((meal) {
+          bool selected = selectedMeals.contains(meal.title);
+
+          String priceText = (meal.price != null && meal.price!.isNotEmpty)
+              ? " (Price: ₹${meal.price})"
+              : " (Included)";
 
           return Card(
             elevation: 2,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            margin: const EdgeInsets.symmetric(vertical: 6),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+            margin: EdgeInsets.symmetric(vertical: 6.w),
             child: CheckboxListTile(
               activeColor: Colors.blueAccent,
-              // Value is true if included OR explicitly selected
-              value: isIncluded || selected,
-              // Cannot change included meals, only optional ones
-              onChanged: isIncluded
-                  ? null // included meals cannot be unchecked
-                  : (bool? value) {
-                      // Use the main setState to update selectedMeals
-                      setState(() {
-                        if (value == true) {
-                          selectedMeals.add(meal["title"]);
-                        } else {
-                          selectedMeals.remove(meal["title"]);
-                        }
-                      });
-                    },
-              title: Text(meal["title"],
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              value: selected,
+              onChanged: (bool? value) {
+                setState(() {
+                  if (value == true && meal.title != null) {
+                    selectedMeals.add(meal.title!);
+                  } else if (meal.title != null) {
+                    selectedMeals.remove(meal.title!);
+                  }
+                });
+              },
+              title: Text(meal.title ?? 'Meal', style: TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(meal["desc"]),
-                  Text("⏰ ${meal["time"]}",
-                      style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                  if (isIncluded)
-                    const Text("INCLUDED",
-                        style: TextStyle(
-                            color: Colors.green,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold))
-                  else
-                    Text(priceText.trim(),
-                        style: const TextStyle(
-                            color: Colors.orange,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold)),
+                  Text(meal.items ?? meal.title ?? ""),
+                  if (meal.time != null && meal.time!.isNotEmpty)
+                    Text(
+                      "⏰ ${meal.time!}",
+                      style: TextStyle(color: Colors.grey, fontSize: 12.sp),
+                    ),
+                  Text(
+                    priceText.trim(),
+                    style: TextStyle(
+                      color: (meal.price != null && meal.price!.isNotEmpty && meal.price != "0")
+                          ? Colors.orange
+                          : Colors.green,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
-              secondary: Icon(meal["icon"], color: Colors.orangeAccent),
+              secondary: Icon(_getMealIcon(meal.title), color: Colors.orangeAccent),
             ),
           );
         }).toList(),
 
-        const SizedBox(height: 10),
-
-        // 🌿 Dietary Preferences (using local StatefulBuilder, this is fine)
-        const Text(
-          "Dietary Preferences",
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: [
-            _buildChip("Vegetarian"),
-            _buildChip("Vegan"),
-            _buildChip("Gluten-Free"),
-            _buildChip("Seafood Lover"),
-          ],
-        ),
-
-        const SizedBox(height: 20),
-
+        SizedBox(height: 20.h),
         if (selectedMeals.isNotEmpty)
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(12.r),
             decoration: BoxDecoration(
               color: Colors.blueAccent.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(10.r),
             ),
             child: Text(
-              "✅ Added meals: ${selectedMeals.join(', ')}",
-              style: const TextStyle(
-                  color: Colors.blueAccent, fontWeight: FontWeight.w600),
+              "✅ Selected meals: ${selectedMeals.join(', ')}",
+              style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.w600),
             ),
           ),
       ],
     );
   }
 
-  /// Helper chip widget (Original Code)
-  Widget _buildChip(String label) {
-    bool selected = false;
-    return StatefulBuilder(builder: (context, setState) {
-      return ChoiceChip(
-        label: Text(label),
-        labelStyle: TextStyle(
-            color: selected ? Colors.white : Colors.black87,
-            fontWeight: FontWeight.w600),
-        selectedColor: Colors.blueAccent,
-        backgroundColor: Colors.grey[200],
-        selected: selected,
-        onSelected: (value) {
-          setState(() {
-            selected = value;
-          });
-        },
+  Widget _buildnearby() {
+    // Use activities from the model
+    final nearbylist = widget.placedtl?.nearby ?? [];
+
+    if (nearbylist.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(height: 10.h),
+            Text("No nearby available", style: TextStyle(color: Colors.grey)),
+          ],
+        ),
       );
-    });
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(height: 10.h),
+
+        ...nearbylist.map((nearby) {
+          bool isSelected = selectedActivities.contains(nearby.title);
+
+          return Card(
+            elevation: 2,
+            margin: EdgeInsets.symmetric(vertical: 6.w),
+            color: isSelected ? Colors.blueAccent.withOpacity(0.1) : Colors.white,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () {
+                setState(() {
+                  if (nearby.title != null) {
+                    if (isSelected) {
+                      selectedActivities.remove(nearby.title);
+                    } else {
+                      selectedActivities.add(nearby.title!);
+                    }
+                  }
+                });
+              },
+              child: ListTile(
+                title: Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Text(
+                    nearby.title ?? 'No Name',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+
+                trailing: IconButton(
+                  icon: Icon(Icons.location_on, color: Colors.red),
+                  onPressed: () {
+                    if (nearby.lat != null && nearby.log != null) {
+                      openGoogleMap(nearby.lat!, nearby.log!);
+                    }
+                  },
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+
+        SizedBox(height: 10.h),
+
+        if (selectedActivities.isNotEmpty)
+          Container(
+            padding: EdgeInsets.all(12.r),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(10)),
+          ),
+      ],
+    );
   }
 
- 
+  IconData _getActivityIcon(String? activityName) {
+    if (activityName == null) return Icons.flag;
+
+    final name = activityName.toLowerCase();
+    if (name.contains('surf') || name.contains('water')) return Icons.surfing;
+    if (name.contains('hike') || name.contains('trek')) return Icons.hiking;
+    if (name.contains('spa') || name.contains('relax')) return Icons.spa;
+    if (name.contains('food') || name.contains('dining')) return Icons.restaurant;
+    return Icons.flag;
+  }
+
+  IconData _getMealIcon(String? mealName) {
+    if (mealName == null) return Icons.restaurant;
+
+    final name = mealName.toLowerCase();
+    if (name.contains('breakfast')) return Icons.breakfast_dining;
+    if (name.contains('lunch')) return Icons.lunch_dining;
+    if (name.contains('dinner')) return Icons.dinner_dining;
+    if (name.contains('tea') || name.contains('snack')) return Icons.emoji_food_beverage;
+    return Icons.restaurant;
+  }
 }

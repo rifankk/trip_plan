@@ -13,20 +13,16 @@ class ProfilePage extends StatelessWidget {
         elevation: 0,
         title: const Text(
           "My Profile",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
         ),
         centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.edit, color: Colors.white),
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Edit Profile")),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text("Edit Profile")));
             },
           ),
         ],
@@ -43,10 +39,7 @@ class ProfilePage extends StatelessWidget {
                     "https://images.unsplash.com/photo-1526772662000-3f88f10405ff?auto=format&fit=crop&w=900&q=60",
                   ),
                   fit: BoxFit.cover,
-                  colorFilter: ColorFilter.mode(
-                    Colors.black.withOpacity(0.3),
-                    BlendMode.darken,
-                  ),
+                  colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.3), BlendMode.darken),
                 ),
               ),
             ),
@@ -63,11 +56,7 @@ class ProfilePage extends StatelessWidget {
                     topRight: Radius.circular(30),
                   ),
                   boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 10,
-                      offset: Offset(0, -2),
-                    ),
+                    BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -2)),
                   ],
                 ),
                 child: Column(
@@ -82,14 +71,6 @@ class ProfilePage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 5),
-                    const Text(
-                      "Traveler | Photographer",
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 15,
-                      ),
-                    ),
-
 
                     const SizedBox(height: 30),
                     Divider(thickness: 1, color: Colors.grey[200]),
@@ -113,45 +94,7 @@ class ProfilePage extends StatelessWidget {
                               );
                             },
                           ),
-                          _buildOption(
-                            icon: Icons.wallet_outlined,
-                            text: "Payments",
-                            color: Colors.green,
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("Opening Payments..."),
-                                  duration: Duration(seconds: 1),
-                                ),
-                              );
-                            },
-                          ),
-                          _buildOption(
-                            icon: Icons.notifications_none,
-                            text: "Notifications",
-                            color: Colors.orange,
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("Opening Notifications..."),
-                                  duration: Duration(seconds: 1),
-                                ),
-                              );
-                            },
-                          ),
-                          _buildOption(
-                            icon: Icons.settings_outlined,
-                            text: "Settings",
-                            color: Colors.grey[700]!,
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("Opening Settings..."),
-                                  duration: Duration(seconds: 1),
-                                ),
-                              );
-                            },
-                          ),
+
                           _buildOption(
                             icon: Icons.help_outline,
                             text: "Help & Support",
@@ -178,9 +121,7 @@ class ProfilePage extends StatelessWidget {
                                       borderRadius: BorderRadius.circular(15),
                                     ),
                                     title: const Text("Logout"),
-                                    content: const Text(
-                                      "Are you sure you want to logout?",
-                                    ),
+                                    content: const Text("Are you sure you want to logout?"),
                                     actions: [
                                       TextButton(
                                         onPressed: () {
@@ -196,9 +137,7 @@ class ProfilePage extends StatelessWidget {
                                           Navigator.pop(context);
                                           Navigator.pushReplacement(
                                             context,
-                                            MaterialPageRoute(
-                                              builder: (context) => Login(),
-                                            ),
+                                            MaterialPageRoute(builder: (context) => Login()),
                                           );
                                         },
                                         child: const Text("Logout"),
@@ -228,10 +167,7 @@ class ProfilePage extends StatelessWidget {
                     Container(
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 4,
-                        ),
+                        border: Border.all(color: Colors.white, width: 4),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.2),
@@ -264,16 +200,9 @@ class ProfilePage extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: Colors.blue,
                             shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 2,
-                            ),
+                            border: Border.all(color: Colors.white, width: 2),
                           ),
-                          child: const Icon(
-                            Icons.camera_alt,
-                            color: Colors.white,
-                            size: 20,
-                          ),
+                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
                         ),
                       ),
                     ),
@@ -293,20 +222,10 @@ class ProfilePage extends StatelessWidget {
       children: [
         Text(
           count,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
         ),
         const SizedBox(height: 4),
-        Text(
-          title,
-          style: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 13,
-          ),
-        ),
+        Text(title, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
       ],
     );
   }
@@ -348,11 +267,7 @@ class ProfilePage extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 16,
-                    color: Colors.grey[400],
-                  ),
+                  Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.grey[400]),
                 ],
               ),
             ),

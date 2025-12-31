@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trip_plan/homepage.dart';
 import 'dart:async';
-
 import 'package:trip_plan/login.dart';
 import 'package:trip_plan/pages/bottombav.dart';
 
@@ -34,7 +34,7 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? uid = await prefs.getString('uidkey');
       if (uid != null) {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => CurvedNavBarDemo()));
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => CurvedNavBarDemo()));
       } else {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => Login()));
       }
@@ -70,26 +70,26 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.connecting_airports_outlined, size: 80),
+                  Icon(Icons.connecting_airports_outlined, size: 80.sp),
 
-                  const SizedBox(height: 20),
+                   SizedBox(height: 20.h),
 
                   // ---- App Title ----
-                  const Text(
+                   Text(
                     "Trip Plan",
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 34,
+                      fontSize: 34.sp,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.5,
                     ),
                   ),
 
-                  const SizedBox(height: 10),
+               SizedBox(height: 10.h),
 
-                  const Text(
+                   Text(
                     "Explore the world with us",
-                    style: TextStyle(color: Colors.white70, fontSize: 16),
+                    style: TextStyle(color: Colors.white70, fontSize: 16.sp),
                   ),
                 ],
               ),

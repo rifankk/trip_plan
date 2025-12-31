@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:trip_plan/Auth/authservice.dart';
 import 'package:trip_plan/homepage.dart';
 
 class Signup extends StatefulWidget {
-  const Signup({super.key});
+   Signup({super.key});
 
   @override
   State<Signup> createState() => _SignupState();
@@ -46,9 +47,9 @@ class _SignupState extends State<Signup> {
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.brown,
-                    const Color.fromARGB(255, 169, 128, 113),
-                    const Color.fromARGB(255, 86, 168, 244),
-                    const Color.fromARGB(255, 5, 123, 234),
+                     Color.fromARGB(255, 169, 128, 113),
+                     Color.fromARGB(255, 86, 168, 244),
+                     Color.fromARGB(255, 5, 123, 234),
                   ],
                 ),
               ),
@@ -57,15 +58,15 @@ class _SignupState extends State<Signup> {
                   key: _userFormKey,
                   child: Column(
                     children: [
-                      const SizedBox(height: 130),
-                      const Icon(Icons.connecting_airports_outlined, size: 90),
+                       SizedBox(height: 130.h),
+                       Icon(Icons.connecting_airports_outlined, size: 90),
                   
-                      const Row(
+                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                            Padding(
-                      padding: const EdgeInsets.only(left: 20,),
+                      padding:  EdgeInsets.only(left: 20,),
                       child: Row(
                         children: [
                           Text("Sign",style: TextStyle(fontSize: 50,color: Colors.orange,fontWeight: FontWeight.bold),),
@@ -78,14 +79,14 @@ class _SignupState extends State<Signup> {
                         ],
                       ),
                   
-                      const SizedBox(height: 50),
+                       SizedBox(height: 50.h),
                   
                       // Username Field
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 15),
+                        padding:  EdgeInsets.symmetric(horizontal: 15),
                         child: TextFormField(
                           controller: _userNameController,
-                          decoration: const InputDecoration(
+                          decoration:  InputDecoration(
                             prefixIcon: Icon(Icons.person),
                             hintText: "User Name",
                          
@@ -102,14 +103,14 @@ class _SignupState extends State<Signup> {
                         ),
                       ),
                   
-                      const SizedBox(height: 25),
+                       SizedBox(height: 25),
                   
                       // Email Field
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 15),
+                        padding:  EdgeInsets.symmetric(horizontal: 15),
                         child: TextFormField(
                           controller: _userEmailController,
-                          decoration: const InputDecoration(
+                          decoration:  InputDecoration(
                             prefixIcon: Icon(Icons.mail),
                             hintText: "Email",
                            
@@ -131,11 +132,11 @@ class _SignupState extends State<Signup> {
                         ),
                       ),
                   
-                      const SizedBox(height: 25),
+                       SizedBox(height: 25.h),
                   
                       // Password Field
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 15),
+                        padding:  EdgeInsets.symmetric(horizontal: 15),
                         child: TextFormField(
                           controller: _useerPasswordController,
                           obscureText: true,
@@ -156,9 +157,9 @@ class _SignupState extends State<Signup> {
                           },
                         ),
                       ),
-                      SizedBox(height: 25,),
+                      SizedBox(height: 25.h),
                        Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 15),
+                        padding:  EdgeInsets.symmetric(horizontal: 15),
                         child: TextFormField(
                           obscureText: true,
                           decoration:  InputDecoration(
@@ -180,7 +181,7 @@ class _SignupState extends State<Signup> {
                         ),
                       ),
                   
-                       SizedBox(height: 100,),
+                       SizedBox(height: 100.h),
                      GestureDetector(
                       onTap: () async{
                         if(_userFormKey.currentState!.validate()){
@@ -194,7 +195,7 @@ class _SignupState extends State<Signup> {
                     borderRadius: BorderRadius.circular(20),
                     color: Colors.amber,
                   ),
-                  height: 45,width: 190,
+                  height: 45.h,width: 190.w,
                   
                   child: Center(child: Text("Sign up",style: TextStyle(fontWeight: FontWeight.bold,fontSize: 18),)),
                                 ),

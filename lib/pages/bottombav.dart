@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:trip_plan/homepage.dart';
-import 'package:trip_plan/pages/explore.dart';
-import 'package:trip_plan/pages/fav.dart';
+import 'package:trip_plan/pages/booking_detail.dart';
+import 'package:trip_plan/pages/favourite_screen.dart';
 import 'package:trip_plan/pages/profile.dart';
-
 
 class CurvedNavBarDemo extends StatefulWidget {
   @override
@@ -14,12 +14,7 @@ class CurvedNavBarDemo extends StatefulWidget {
 class _CurvedNavBarDemoState extends State<CurvedNavBarDemo> {
   int _index = 0;
 
-  final screens = [
-    Homepage(),
-    Explore(),
-    Fav(),
-    ProfilePage(),
-  ];
+  final screens = [Homepage(), FavouriteScreen(), ProfilePage()];
 
   @override
   Widget build(BuildContext context) {
@@ -29,15 +24,15 @@ class _CurvedNavBarDemoState extends State<CurvedNavBarDemo> {
       body: screens[_index],
       bottomNavigationBar: CurvedNavigationBar(
         backgroundColor: Colors.transparent,
-        color: Colors.black,
-        buttonBackgroundColor: Colors.red,
-        height: 60,
+        color: const Color.fromARGB(255, 64, 79, 165),
+        buttonBackgroundColor: Colors.indigo,
+        height: 60.h,
         animationDuration: Duration(milliseconds: 400),
-        items: const <Widget>[
-          Icon(Icons.home, size: 30, color: Colors.white),
-          Icon(Icons.explore, size: 30, color: Colors.white),
-          Icon(Icons.favorite, size: 30, color: Colors.white),
-          Icon(Icons.person, size: 30, color: Colors.white),
+        items: <Widget>[
+          Icon(Icons.home, size: 26.sp, color: Colors.white),
+
+          Icon(Icons.favorite, size: 26.sp, color: Colors.white),
+          Icon(Icons.person, size: 26.sp, color: Colors.white),
         ],
         onTap: (index) {
           setState(() {

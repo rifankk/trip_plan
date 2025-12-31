@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trip_plan/Auth/authservice.dart';
 import 'package:trip_plan/homepage.dart';
@@ -60,7 +61,7 @@ class _loginstate extends State<Login> {
                           padding: const EdgeInsets.only(top: 130),
                           child: Icon(
                             Icons.connecting_airports_outlined,
-                            size: 90,
+                            size: 90.sp,
                           ),
                         ),
                         Padding(
@@ -70,7 +71,7 @@ class _loginstate extends State<Login> {
                               Text(
                                 "Go",
                                 style: TextStyle(
-                                  fontSize: 70,
+                                  fontSize: 70.sp,
                                   color: Colors.orange,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -78,7 +79,7 @@ class _loginstate extends State<Login> {
                               Text(
                                 "Travel",
                                 style: TextStyle(
-                                  fontSize: 40,
+                                  fontSize: 40.sp,
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -87,7 +88,7 @@ class _loginstate extends State<Login> {
                           ),
                         ),
                         Text("“Journey before destination.”"),
-                        SizedBox(height: 37),
+                        SizedBox(height: 37.h),
                         Padding(
                           padding: const EdgeInsets.only(left: 15, right: 15),
                           child: TextFormField(
@@ -111,7 +112,7 @@ class _loginstate extends State<Login> {
                             },
                           ),
                         ),
-                        SizedBox(height: 25),
+                        SizedBox(height: 25.h),
                         Padding(
                           padding: const EdgeInsets.only(left: 15, right: 15),
                           child: TextFormField(
@@ -130,7 +131,7 @@ class _loginstate extends State<Login> {
                             },
                           ),
                         ),
-                        SizedBox(height: 100),
+                        SizedBox(height: 100.h),
                         GestureDetector(
                           onTap: () async{
 
@@ -169,24 +170,24 @@ class _loginstate extends State<Login> {
                               borderRadius: BorderRadius.circular(20),
                               color: Colors.amber,
                             ),
-                            height: 45,
-                            width: 190,
+                            height: 45.h,
+                            width: 190.w,
 
                             child: Center(
                               child: Text(
                                 "Login",
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 18,
+                                  fontSize: 18.sp,
                                 ),
                               ),
                             ),
                           ),
                         ),
-                        SizedBox(height: 8),
+                        SizedBox(height: 8.h),
                         Text("OR"),
 
-                        SizedBox(height: 15),
+                        SizedBox(height: 15.h),
                         GestureDetector(
                           onTap: ()  {
                             
@@ -202,12 +203,12 @@ class _loginstate extends State<Login> {
                                 color: const Color.fromARGB(255, 108, 108, 108),
                               ),
                             ),
-                            height: 30,
-                            width: 80,
+                            height: 30.h,
+                            width: 80.w,
                             child: Center(
                               child: Text(
                                 "Sign In",
-                                style: TextStyle(fontSize: 12),
+                                style: TextStyle(fontSize: 12.sp),
                               ),
                             ),
                           ),

@@ -5,17 +5,16 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:trip_plan/design/design.dart';
 import '../model/hotel_model.dart';
 
-class PlacelistScreen extends StatefulWidget {
-  PlacelistScreen({super.key, required this.mainplaceid});
-  String mainplaceid;
+class FavouriteScreen extends StatefulWidget {
+  FavouriteScreen({super.key});
+
   @override
-  State<PlacelistScreen> createState() => _PlacelistScreenState();
+  State<FavouriteScreen> createState() => _PlacelistScreenState();
 }
 
-class _PlacelistScreenState extends State<PlacelistScreen> {
+class _PlacelistScreenState extends State<FavouriteScreen> {
   @override
   void initState() {
-    log(widget.mainplaceid);
     super.initState();
   }
 
@@ -24,13 +23,9 @@ class _PlacelistScreenState extends State<PlacelistScreen> {
     return Scaffold(
       appBar: AppBar(),
       body: Padding(
-        padding: EdgeInsets.all(10.r),
+        padding: EdgeInsets.all(10.w),
         child: StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('Places')
-              .where('status', isEqualTo: 1)
-              .where('mainplace.id', isEqualTo: widget.mainplaceid)
-              .snapshots(),
+          stream: FirebaseFirestore.instance.collection('favorites').snapshots(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return Center(child: CircularProgressIndicator());
@@ -41,7 +36,7 @@ class _PlacelistScreenState extends State<PlacelistScreen> {
                 child: Text(
                   'No sub places yet',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 18.sp,
                     color: Colors.grey[600],
                     fontWeight: FontWeight.w500,
                   ),
@@ -76,7 +71,7 @@ class _PlacelistScreenState extends State<PlacelistScreen> {
                     );
                   },
                   child: Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.r)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                     elevation: 4,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
