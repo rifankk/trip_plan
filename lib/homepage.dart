@@ -2,6 +2,7 @@ import 'dart:developer';
 
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:trip_plan/design/all_places.dart';
@@ -21,25 +22,92 @@ class Homepage extends StatefulWidget {
 
 class _HomepageState extends State<Homepage> {
   List<bool> isFav = [];
+  String userName = "";
+  bool isLoading = true;
 
-  final List<String> imgList = [
-    'https://picsum.photos/id/1018/600/400',
-    'https://picsum.photos/id/1015/600/400',
-    'https://picsum.photos/id/1016/600/400',
-    'https://picsum.photos/id/1020/600/400',
-  ];
+  final List<String> imgList = [];
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     isFav = List.generate(trip.length, (index) => false);
+    _fetchUserName();
+  }
+
+  Future<void> _fetchUserName() async {
+    try {
+      User? user = FirebaseAuth.instance.currentUser;
+     
+      if (user != null) {
+        // Option 1: Get display name from Firebase Auth
+        if (user.displayName != null && user.displayName!.isNotEmpty) {
+          setState(() {
+            userName = user.displayName!;
+            isLoading = false;
+          });
+        }
+        // Option 2: Get name from Firestore
+        else {
+          DocumentSnapshot userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+
+          if (userDoc.exists) {
+            setState(() {
+              userName = userDoc.get('name') ?? 'User';
+              isLoading = false;
+            });
+          } else {
+            setState(() {
+              userName = user.email?.split('@')[0] ?? 'User';
+              isLoading = false;
+            });
+          }
+        }
+      } else {
+        setState(() {
+          userName = 'Guest';
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      print("Error fetching user name: $e");
+      setState(() {
+        userName = 'User';
+        isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: CircleAvatar(radius: 20, child: Icon(Icons.person))),
+      appBar: AppBar(
+        title: Row(
+          children: [
+            CircleAvatar(radius: 20, child: Icon(Icons.person)),
+            SizedBox(width: 15),
+            isLoading
+                ? SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                    ),
+                  )
+                : Text(
+                    userName,
+                    style: TextStyle(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
+                  ),
+          ],
+        ),
+      ),
       body: SingleChildScrollView(
         child: Padding(
           padding: EdgeInsets.all(10),
@@ -54,26 +122,6 @@ class _HomepageState extends State<Homepage> {
                 ),
               ),
               SizedBox(height: 15.h),
-              Padding(
-                padding: EdgeInsets.only(left: 15, right: 15),
-                child: Container(
-                  padding: EdgeInsets.only(left: 20),
-                  width: MediaQuery.of(context).size.width,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(150),
-                  ),
-                  child: TextField(
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      hintText: "Search here",
-                      hintStyle: TextStyle(color: Colors.black45),
-                      prefixIcon: Icon(Icons.search, color: Color.fromARGB(255, 22, 27, 120)),
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(height: 13.h),
 
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance.collection('bannerslide').snapshots(),
@@ -185,7 +233,7 @@ class _HomepageState extends State<Homepage> {
                                     Stack(
                                       children: [
                                         Container(
-                                          height: 140.h,
+                                          height: 160.h,
                                           width: 190.w,
                                           decoration: BoxDecoration(
                                             borderRadius: BorderRadius.circular(12.r),
@@ -210,13 +258,6 @@ class _HomepageState extends State<Homepage> {
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                       maxLines: 1,
-                                    ),
-                                    SizedBox(height: 3.h),
-                                    Row(
-                                      children: [
-                                        Icon(Icons.star, color: Colors.amber),
-                                        Text("4.5"),
-                                      ],
                                     ),
                                   ],
                                 ),

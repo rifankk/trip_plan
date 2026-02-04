@@ -26,13 +26,12 @@ class _DesignState extends State<Design> {
   List<String> selectedMeals = [];
   List<String> selectedtemple = [];
 
-  // NEW: State variable for total calculated price
+  // State variable for total calculated price
   double totalPrice = 0.0;
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
   Future<void> openGoogleMap(double latitude, double longitude) async {
     final Uri url = Uri.parse('https://www.google.com/maps?q=$latitude,$longitude');
-
     await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 
@@ -40,12 +39,13 @@ class _DesignState extends State<Design> {
   void initState() {
     super.initState();
 
-    if (widget.placedtl?.meals != null) {
-      for (var meal in widget.placedtl!.meals!) {
-        selectedMeals.add(meal.title ?? '');
-      }
-    }
+    // Don't pre-select meals - let user choose
+    // selectedMeals starts empty
 
+    // Don't auto-select hotel - let user choose
+    // selectedHotel starts as null
+
+    // Calculate initial total price
     totalPrice = _calculateTotalPrice();
     _checkIfFavorite();
   }
@@ -54,7 +54,6 @@ class _DesignState extends State<Design> {
     if (hotel == null) return 0.0;
     if (hotel.pricePerday is String) {
       String priceString = hotel.pricePerday as String;
-
       priceString = priceString.replaceAll(RegExp(r'[^\d.]'), '');
       return double.tryParse(priceString) ?? 0.0;
     } else if (hotel.pricePerday is double) {
@@ -62,37 +61,24 @@ class _DesignState extends State<Design> {
     } else if (hotel.pricePerday is int) {
       return (hotel.pricePerday as int).toDouble();
     }
-
     return 0.0;
   }
 
   double _calculateTotalPrice() {
     double total = 0.0;
 
+    // 1. Start with base package price
     double basePackagePrice = double.tryParse(widget.placedtl?.basePackagePrice ?? '0') ?? 0.0;
     total += basePackagePrice;
 
-    if (widget.placedtl?.hotels != null && widget.placedtl!.hotels!.isNotEmpty) {
-      double lowestHotelPrice = double.maxFinite;
-      // for (var hotel in widget.placedtl!.hotels!) {
-      //   double price = _getHotelPrice(hotel);
-      //   if (price < lowestHotelPrice) {
-      //     lowestHotelPrice = price;
-      //   }
-      // }
-
-      if (selectedHotel != null) {
-        double selectedHotelPrice = _getHotelPrice(selectedHotel);
-        double hotelAdjustment = selectedHotelPrice - lowestHotelPrice;
-        if (hotelAdjustment > 0) {
-          total += hotelAdjustment;
-        }
-      }
-    } else if (selectedHotel != null) {
-      total += _getHotelPrice(selectedHotel);
+    // 2. Add full hotel price if a hotel is selected
+    if (selectedHotel != null) {
+      double selectedHotelPrice = _getHotelPrice(selectedHotel);
+      total += selectedHotelPrice;
     }
 
-    if (widget.placedtl?.activity != null) {
+    // 3. Add selected activities prices
+    if (widget.placedtl?.activity != null && selectedActivities.isNotEmpty) {
       for (String activityName in selectedActivities) {
         final activity = widget.placedtl!.activity!.firstWhere(
           (a) => a.title == activityName,
@@ -100,7 +86,7 @@ class _DesignState extends State<Design> {
         );
 
         double activityPrice = 0.0;
-        if (activity.price != null) {
+        if (activity.price != null && activity.price!.isNotEmpty) {
           String priceStr = activity.price!.replaceAll(RegExp(r'[^\d.]'), '');
           activityPrice = double.tryParse(priceStr) ?? 0.0;
         }
@@ -108,28 +94,31 @@ class _DesignState extends State<Design> {
       }
     }
 
-    if (widget.placedtl?.meals != null) {
+    // 4. Add selected meal prices
+    if (widget.placedtl?.meals != null && selectedMeals.isNotEmpty) {
       for (String mealTitle in selectedMeals) {
         final meal = widget.placedtl!.meals!.firstWhere(
           (m) => m.title == mealTitle,
           orElse: () => Meal(price: "0"),
         );
 
-        // Check if meal is optional (not included in base package)
-        // You might need to add an 'included' field to your Meal model
         double mealPrice = 0.0;
-        if (meal.price != null) {
+        if (meal.price != null && meal.price!.isNotEmpty) {
           String priceStr = meal.price!.replaceAll(RegExp(r'[^\d.]'), '');
           mealPrice = double.tryParse(priceStr) ?? 0.0;
         }
-
-        // Add logic to check if meal is included or extra
-        // For now, assuming all meals in model are included in base price
-        // total += mealPrice;
+        total += mealPrice;
       }
     }
 
     return total;
+  }
+
+  // Recalculate total price whenever selections change
+  void _updateTotalPrice() {
+    setState(() {
+      totalPrice = _calculateTotalPrice();
+    });
   }
 
   // Check if place is already in favorites
@@ -180,61 +169,6 @@ class _DesignState extends State<Design> {
         }
       } else {
         // Add to favorites
-        final favoriteData = {
-          'image': widget.placedtl?.image,
-          'image2': widget.placedtl?.image2,
-          'place': widget.placedtl?.place,
-          'description': widget.placedtl?.description,
-          'hotels': widget.placedtl?.hotels
-              ?.map(
-                (hotel) => {
-                  'id': hotel.id,
-                  "price perday": hotel.pricePerday,
-                  'hotel': hotel.hotel,
-                  'longitude': hotel.longitude,
-                  'latitude': hotel.latitude,
-                  'filter': hotel.filter,
-                  'image1': hotel.image1,
-                  'image2': hotel.image2,
-                  'description': hotel.description,
-                },
-              )
-              .toList(),
-          'activities': widget.placedtl?.activity
-              ?.map(
-                (activity) => {
-                  'title': activity.title,
-                  'description': activity.description,
-                  'price': activity.price,
-                  'id': activity.id,
-                },
-              )
-              .toList(),
-          'meals': widget.placedtl?.meals
-              ?.map(
-                (meal) => {
-                  'id': meal.id,
-                  'title': meal.title,
-                  'items': meal.items,
-                  'price': meal.price,
-                  'time': meal.time,
-                },
-              )
-              .toList(),
-          'mainplace': widget.placedtl?.meals
-              ?.map(
-                (meal) => {
-                  'id': meal.id,
-                  'title': meal.title,
-                  'items': meal.items,
-                  'price': meal.price,
-                  'time': meal.time,
-                },
-              )
-              .toList(),
-          'timestamp': FieldValue.serverTimestamp(),
-        };
-
         await firestore.collection('favorites').add(widget.placedtl!.toJson());
 
         if (mounted) {
@@ -316,7 +250,7 @@ class _DesignState extends State<Design> {
                       height: 60.h,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
-                        itemCount: 4,
+                        itemCount: 1,
                         itemBuilder: (context, index) {
                           return Padding(
                             padding: EdgeInsets.only(right: 10.w),
@@ -402,35 +336,55 @@ class _DesignState extends State<Design> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            GestureDetector(
-              onTap: () {
-                _showSelectionSummaryBottomSheet(context);
-              },
-              child: Padding(
-                padding: EdgeInsets.only(left: 180.w),
-                child: Container(
-                  height: 60.h,
-                  width: 140.w,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Colors.indigo, Colors.cyan],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      "Total Price",
+                      style: TextStyle(fontSize: 14.sp, color: Colors.grey[600]),
                     ),
-                    borderRadius: BorderRadius.circular(20.r),
-                  ),
-                  child: Center(
-                    child: Text(
-                      "View Detail",
+                    Text(
+                      "₹${totalPrice.toStringAsFixed(0)}",
                       style: TextStyle(
-                        fontSize: 22.sp,
+                        fontSize: 24.sp,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: Colors.indigo,
+                      ),
+                    ),
+                  ],
+                ),
+                GestureDetector(
+                  onTap: () {
+                    _showSelectionSummaryBottomSheet(context);
+                  },
+                  child: Container(
+                    height: 60.h,
+                    width: 140.w,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Colors.indigo, Colors.cyan],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(20.r),
+                    ),
+                    child: Center(
+                      child: Text(
+                        "View Detail",
+                        style: TextStyle(
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
           ],
         ),
@@ -467,40 +421,8 @@ class _DesignState extends State<Design> {
                 ),
               ),
 
-              /// YOUR EXISTING CONTENT
+              /// Selection Summary
               _buildSelectionSummary(),
-
-              SizedBox(height: 20.h),
-
-              /// BOOK NOW BUTTON
-              GestureDetector(
-                onTap: () {
-                  Navigator.pop(context); // close bottom sheet
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => Booknow()));
-                },
-                child: Container(
-                  height: 60.h,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Colors.indigo, Colors.cyan],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20.r),
-                  ),
-                  child: Center(
-                    child: Text(
-                      "Details",
-                      style: TextStyle(
-                        fontSize: 22.sp,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
 
               SizedBox(height: 20.h),
             ],
@@ -510,37 +432,29 @@ class _DesignState extends State<Design> {
     );
   }
 
-  // Selection Summary Widget
+  // Selection Summary Widget - FIXED VERSION
   Widget _buildSelectionSummary() {
-    if (selectedHotel == null && selectedActivities.isEmpty && selectedMeals.isEmpty) {
-      return SizedBox.shrink();
-    }
-
     List<String> summary = [];
+    double basePrice = double.tryParse(widget.placedtl?.basePackagePrice ?? '0') ?? 0.0;
+    double additionalCosts = 0.0;
 
-    // 1. Hotel Summary
+    // 1. Hotel Summary - full price is additional
     if (selectedHotel != null) {
       double selectedHotelPrice = _getHotelPrice(selectedHotel);
 
-      // Find lowest hotel price from model
-      double lowestHotelPrice = double.maxFinite;
-      if (widget.placedtl?.hotels != null) {
-        for (var hotel in widget.placedtl!.hotels!) {
-          double price = _getHotelPrice(hotel);
-          if (price < lowestHotelPrice) {
-            lowestHotelPrice = price;
-          }
-        }
+      if (selectedHotelPrice > 0) {
+        summary.add(
+          "🏨 Hotel: ${selectedHotel?.hotel} (+₹${selectedHotelPrice.toStringAsFixed(0)})",
+        );
+        additionalCosts += selectedHotelPrice;
+      } else {
+        summary.add("🏨 Hotel: ${selectedHotel?.hotel}");
       }
-
-      double hotelAdjustment = selectedHotelPrice - lowestHotelPrice;
-      String priceText = hotelAdjustment > 0
-          ? " (Upgrade: +₹${hotelAdjustment.toStringAsFixed(0)})"
-          : " (Included)";
-      summary.add("Hotel: ${selectedHotel?.hotel}$priceText");
+    } else {
+      summary.add("🏨 Hotel: Not selected");
     }
 
-    // 2. Activities Summary
+    // 2. Activities Summary - all activities are additional
     if (selectedActivities.isNotEmpty && widget.placedtl?.activity != null) {
       for (String activityName in selectedActivities) {
         final activity = widget.placedtl!.activity!.firstWhere(
@@ -549,29 +463,47 @@ class _DesignState extends State<Design> {
         );
 
         double activityPrice = 0.0;
-        if (activity.price != null) {
+        if (activity.price != null && activity.price!.isNotEmpty) {
           String priceStr = activity.price!.replaceAll(RegExp(r'[^\d.]'), '');
           activityPrice = double.tryParse(priceStr) ?? 0.0;
         }
 
         String priceText = activityPrice > 0
-            ? " (Extra: +₹${activityPrice.toStringAsFixed(0)})"
-            : "";
-        summary.add("Activity: $activityName$priceText");
+            ? " (+₹${activityPrice.toStringAsFixed(0)})"
+            : " (Free)";
+        summary.add("🎯 Activity: $activityName$priceText");
+
+        if (activityPrice > 0) {
+          additionalCosts += activityPrice;
+        }
       }
     }
 
-    // 3. Meals Summary
-    if (widget.placedtl?.meals != null) {
-      // Add included meals
-      for (final meal in widget.placedtl!.meals!) {
-        // Assuming all meals in model are included in base package
-        summary.add("Meal: ${meal.title} (Included)");
+    // 3. Meals Summary - add prices when selected
+    if (selectedMeals.isNotEmpty && widget.placedtl?.meals != null) {
+      for (String mealTitle in selectedMeals) {
+        final meal = widget.placedtl!.meals!.firstWhere(
+          (m) => m.title == mealTitle,
+          orElse: () => Meal(price: "0"),
+        );
+
+        double mealPrice = 0.0;
+        if (meal.price != null && meal.price!.isNotEmpty) {
+          String priceStr = meal.price!.replaceAll(RegExp(r'[^\d.]'), '');
+          mealPrice = double.tryParse(priceStr) ?? 0.0;
+        }
+
+        String priceText = mealPrice > 0 ? " (+₹${mealPrice.toStringAsFixed(0)})" : " (Included)";
+        summary.add("🍽️ Meal: $mealTitle$priceText");
+
+        if (mealPrice > 0) {
+          additionalCosts += mealPrice;
+        }
       }
     }
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.w),
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.w),
       margin: EdgeInsets.only(bottom: 10.h),
       decoration: BoxDecoration(
         color: Colors.green.withOpacity(0.1),
@@ -582,30 +514,94 @@ class _DesignState extends State<Design> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "📝 Your Selections:",
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 14.sp),
+            "📝 Your Package Summary",
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 16.sp),
           ),
-          SizedBox(height: 5.h),
-          ...summary.map(
-            (text) => Padding(
-              padding: EdgeInsets.only(top: 2.0.h),
-              child: Text(
-                "• $text",
-                style: TextStyle(fontSize: 13.sp, color: Colors.black87),
+          SizedBox(height: 10.h),
+
+          // Display all selections
+          if (summary.isEmpty)
+            Text(
+              "No selections made yet",
+              style: TextStyle(fontSize: 13.sp, color: Colors.black54),
+            )
+          else
+            ...summary.map(
+              (text) => Padding(
+                padding: EdgeInsets.only(top: 4.0.h),
+                child: Text(
+                  text,
+                  style: TextStyle(fontSize: 13.sp, color: Colors.black87),
+                ),
               ),
             ),
-          ),
+
           Padding(
-            padding: EdgeInsets.symmetric(vertical: 8.w),
+            padding: EdgeInsets.symmetric(vertical: 12.w),
             child: DottedLine(dashColor: Colors.black38, dashGapLength: 4, lineThickness: 0.5),
           ),
-          Text(
-            "💰 Base Price:  ₹${totalPrice}",
-            style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold, color: Colors.black87),
+
+          // Price Breakdown
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "Base Package:",
+                style: TextStyle(fontSize: 13.sp, color: Colors.black87),
+              ),
+              Text(
+                "₹${basePrice.toStringAsFixed(0)}",
+                style: TextStyle(
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
           ),
-          Text(
-            "✨ Total Price: ₹${totalPrice.toStringAsFixed(0)}",
-            style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold, color: Colors.black),
+
+          if (additionalCosts > 0) ...[
+            SizedBox(height: 8.h),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Additional Items:",
+                  style: TextStyle(fontSize: 13.sp, color: Colors.black87),
+                ),
+                Text(
+                  "+₹${additionalCosts.toStringAsFixed(0)}",
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange,
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.w),
+            child: DottedLine(dashColor: Colors.black38, dashGapLength: 4, lineThickness: 1),
+          ),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "💰 Total Price:",
+                style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold, color: Colors.black),
+              ),
+              Text(
+                "₹${totalPrice.toStringAsFixed(0)}",
+                style: TextStyle(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.indigo,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -793,13 +789,15 @@ class _DesignState extends State<Design> {
                           setState(() {
                             if (val == true) {
                               selectedHotel = h;
-                            } else if (selectedHotel?.id == h.id) {
+                            } else {
+                              // Allow deselecting hotel
                               selectedHotel = null;
                             }
+                            // Recalculate total price when hotel selection changes
+                            _updateTotalPrice();
                           });
                         },
-
-                        activeColor: Colors.blueAccent,
+                        activeColor: Colors.indigo,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4.r)),
                       ),
                     ],
@@ -869,6 +867,8 @@ class _DesignState extends State<Design> {
                   } else if (activity.title != null) {
                     selectedActivities.remove(activity.title!);
                   }
+                  // Recalculate total price when activity selection changes
+                  _updateTotalPrice();
                 });
               },
               title: Text(activity.title ?? 'No Name'),
@@ -928,10 +928,6 @@ class _DesignState extends State<Design> {
         ...mealsList.map((meal) {
           bool selected = selectedMeals.contains(meal.title);
 
-          String priceText = (meal.price != null && meal.price!.isNotEmpty)
-              ? " (Price: ₹${meal.price})"
-              : " (Included)";
-
           return Card(
             elevation: 2,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
@@ -946,6 +942,8 @@ class _DesignState extends State<Design> {
                   } else if (meal.title != null) {
                     selectedMeals.remove(meal.title!);
                   }
+                  // Recalculate total price when meal selection changes
+                  _updateTotalPrice();
                 });
               },
               title: Text(meal.title ?? 'Meal', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -958,15 +956,34 @@ class _DesignState extends State<Design> {
                       "⏰ ${meal.time!}",
                       style: TextStyle(color: Colors.grey, fontSize: 12.sp),
                     ),
-                  Text(
-                    priceText.trim(),
-                    style: TextStyle(
-                      color: (meal.price != null && meal.price!.isNotEmpty && meal.price != "0")
-                          ? Colors.orange
-                          : Colors.green,
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Builder(
+                    builder: (context) {
+                      double mealPrice = 0.0;
+                      if (meal.price != null && meal.price!.isNotEmpty) {
+                        String priceStr = meal.price!.replaceAll(RegExp(r'[^\d.]'), '');
+                        mealPrice = double.tryParse(priceStr) ?? 0.0;
+                      }
+
+                      if (mealPrice > 0) {
+                        return Text(
+                          "₹${mealPrice.toStringAsFixed(0)}",
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        );
+                      } else {
+                        return Text(
+                          "Included",
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        );
+                      }
+                    },
                   ),
                 ],
               ),
@@ -993,7 +1010,7 @@ class _DesignState extends State<Design> {
   }
 
   Widget _buildnearby() {
-    // Use activities from the model
+    // Use nearby places from the model
     final nearbylist = widget.placedtl?.nearby ?? [];
 
     if (nearbylist.isEmpty) {
@@ -1001,8 +1018,9 @@ class _DesignState extends State<Design> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Icon(Icons.location_on, size: 50.sp, color: Colors.grey[300]),
             SizedBox(height: 10.h),
-            Text("No nearby available", style: TextStyle(color: Colors.grey)),
+            Text("No nearby places available", style: TextStyle(color: Colors.grey)),
           ],
         ),
       );
@@ -1012,56 +1030,32 @@ class _DesignState extends State<Design> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(height: 10.h),
+        Text(
+          "📍 Nearby Places",
+          style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold),
+        ),
+        SizedBox(height: 10.h),
 
         ...nearbylist.map((nearby) {
-          bool isSelected = selectedActivities.contains(nearby.title);
-
           return Card(
             elevation: 2,
             margin: EdgeInsets.symmetric(vertical: 6.w),
-            color: isSelected ? Colors.blueAccent.withOpacity(0.1) : Colors.white,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () {
-                setState(() {
-                  if (nearby.title != null) {
-                    if (isSelected) {
-                      selectedActivities.remove(nearby.title);
-                    } else {
-                      selectedActivities.add(nearby.title!);
-                    }
+            child: ListTile(
+              leading: Icon(Icons.place, color: Colors.indigo),
+              title: Text(nearby.title ?? 'No Name', style: TextStyle(fontWeight: FontWeight.bold)),
+              trailing: IconButton(
+                icon: Icon(Icons.location_on, color: Colors.red),
+                onPressed: () {
+                  if (nearby.lat != null && nearby.log != null) {
+                    openGoogleMap(nearby.lat!, nearby.log!);
                   }
-                });
-              },
-              child: ListTile(
-                title: Padding(
-                  padding: const EdgeInsets.only(left: 12),
-                  child: Text(
-                    nearby.title ?? 'No Name',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-
-                trailing: IconButton(
-                  icon: Icon(Icons.location_on, color: Colors.red),
-                  onPressed: () {
-                    if (nearby.lat != null && nearby.log != null) {
-                      openGoogleMap(nearby.lat!, nearby.log!);
-                    }
-                  },
-                ),
+                },
               ),
             ),
           );
         }).toList(),
 
         SizedBox(height: 10.h),
-
-        if (selectedActivities.isNotEmpty)
-          Container(
-            padding: EdgeInsets.all(12.r),
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(10)),
-          ),
       ],
     );
   }
